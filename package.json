@@ -1,0 +1,16 @@
+{
+  "name": "pomodoro-tracker",
+  "version": "1.0.0",
+  "description": "Windows Pomodoro Timer Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "keywords": ["pomodoro", "timer", "productivity"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^25.0.0"
+  }
+}
