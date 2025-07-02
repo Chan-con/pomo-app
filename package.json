@@ -5,12 +5,53 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "build": "npx electron-builder",
+    "package:win": "npx electron-builder --win",
+    "package:portable": "npx electron-builder --win portable",
+    "dist": "npx electron-builder --publish=never"
   },
-  "keywords": ["pomodoro", "timer", "productivity"],
+  "keywords": [
+    "pomodoro",
+    "timer",
+    "productivity"
+  ],
   "author": "",
   "license": "MIT",
+  "homepage": "https://github.com/Chan-con/pomo-app",
+  "build": {
+    "appId": "com.chancon.pomodoro-tracker",
+    "productName": "PomodoroTimer",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/**/*",
+      "node_modules/electron/dist/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64", "ia32"]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
   "devDependencies": {
-    "electron": "^25.0.0"
+    "electron": "^25.0.0",
+    "electron-builder": "^26.0.12"
   }
 }

@@ -20,7 +20,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false
     },
-    // icon: path.join(__dirname, 'assets', 'icon.png')
+    icon: path.join(__dirname, 'assets', 'icon.png')
   });
 
   mainWindow.loadFile('index.html');
@@ -43,8 +43,9 @@ app.whenReady().then(() => {
 });
 
 function createTray() {
-  // Create a simple 16x16 transparent icon for the tray
-  const icon = nativeImage.createEmpty();
+  // Use the app icon for the tray (will be resized automatically)
+  const iconPath = path.join(__dirname, 'assets', 'icon.png');
+  const icon = nativeImage.createFromPath(iconPath);
   tray = new Tray(icon);
   
   const contextMenu = Menu.buildFromTemplate([
