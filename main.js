@@ -115,8 +115,8 @@ ipcMain.on('set-window-position', (event, x, y) => {
 
 ipcMain.on('set-compact-mode', (event, isCompact) => {
   if (isCompact) {
-    // コンパクトモード: 200x200、リサイズ無効、透明部分をクリックスルー
-    mainWindow.setSize(200, 200);
+    // コンパクトモード: 170x170、リサイズ無効、透明部分をクリックスルー
+    mainWindow.setSize(170, 170);
     mainWindow.setResizable(false);
     mainWindow.setIgnoreMouseEvents(true, { forward: true });
   } else {

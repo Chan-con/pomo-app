@@ -9,8 +9,8 @@ html {
 }
 
 html.compact-mode {
-    width: 200px !important;
-    height: 200px !important;
+    width: 170px !important;
+    height: 170px !important;
     overflow: hidden !important;
 }
 
@@ -25,8 +25,8 @@ body {
 body.compact-mode {
     margin: 0 !important;
     padding: 0 !important;
-    width: 200px !important;
-    height: 200px !important;
+    width: 170px !important;
+    height: 170px !important;
     overflow: hidden !important;
 }
 
@@ -110,7 +110,6 @@ body.compact-mode {
     height: min(200px, 40vw);
     min-width: 150px;
     min-height: 150px;
-    border: 8px solid #e0e0e0;
     border-radius: 50%;
     display: flex;
     flex-direction: column;
@@ -121,19 +120,37 @@ body.compact-mode {
     position: relative;
     overflow: hidden;
     cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.progress-ring {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.progress-ring-background {
+    opacity: 0.3;
+}
+
+.progress-ring-progress {
+    stroke-dasharray: 339.292;
+    stroke-dashoffset: 339.292;
+    transition: stroke-dashoffset 0.5s ease;
+}
+
+.time-circle.break .progress-ring-progress {
+    stroke: #ff8c00;
 }
 
 .time-circle.active {
-    border-color: #4a90e2;
     animation: pulse 2s infinite;
-}
-
-.time-circle.break {
-    border-color: #50c878;
-}
-
-.time-circle.long-break {
-    border-color: #ff6b6b;
 }
 
 @keyframes pulse {
@@ -151,12 +168,24 @@ body.compact-mode {
     font-weight: bold;
     color: #333;
     font-family: 'Courier New', monospace;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    position: relative;
+    z-index: 2;
 }
 
 .timer-label {
     font-size: clamp(10px, 2vw, 12px);
     color: #666;
     margin-top: 5px;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    position: relative;
+    z-index: 2;
 }
 
 .controls {
@@ -226,8 +255,8 @@ body.compact-mode {
     border: none !important;
     padding: 0 !important;
     margin: 0 !important;
-    width: 200px !important;
-    height: 200px !important;
+    width: 170px !important;
+    height: 170px !important;
     overflow: hidden !important;
 }
 
@@ -237,8 +266,8 @@ body.compact-mode {
     justify-content: center !important;
     align-items: center !important;
     background: transparent !important;
-    height: 200px !important;
-    width: 200px !important;
+    height: 170px !important;
+    width: 170px !important;
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
@@ -248,13 +277,13 @@ body.compact-mode {
 .compact-mode .timer-display {
     margin: 0 !important;
     padding: 0 !important;
-    width: 200px !important;
-    height: 200px !important;
+    width: 170px !important;
+    height: 170px !important;
 }
 
 .compact-mode .time-circle {
-    width: 200px !important;
-    height: 200px !important;
+    width: 150px !important;
+    height: 150px !important;
     cursor: pointer !important;
     box-shadow: inset 0 3px 15px rgba(0, 0, 0, 0.15) !important;
     margin: 0 !important;
@@ -264,6 +293,14 @@ body.compact-mode {
     overflow: hidden !important;
     transform: none !important;
     transition: none !important;
+}
+
+.compact-mode .time-text {
+    font-size: 20px !important;
+}
+
+.compact-mode .timer-label {
+    font-size: 10px !important;
 }
 
 .settings {
@@ -353,21 +390,3 @@ body.compact-mode {
     background: #e0e0e0;
 }
 
-.progress-ring {
-    position: absolute;
-    top: -4px;
-    left: -4px;
-    width: 208px;
-    height: 208px;
-    border-radius: 50%;
-    background: conic-gradient(#4a90e2 0deg, #e0e0e0 0deg);
-    transition: background 0.1s ease;
-}
-
-.compact-mode .progress-ring {
-    top: 0px !important;
-    left: 0px !important;
-    width: 200px !important;
-    height: 200px !important;
-    overflow: hidden !important;
-}

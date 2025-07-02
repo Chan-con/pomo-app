@@ -9,6 +9,7 @@ class PomodoroTimer {
         this.completedPomodoros = 0;
         this.totalWorkTime = 0;
         this.timer = null;
+        this.autoStartTimeout = null;
         this.isCompactMode = false;
         
         this.workTime = 25;
@@ -27,6 +28,7 @@ class PomodoroTimer {
             minimizeBtn: document.getElementById('minimizeBtn'),
             closeBtn: document.getElementById('closeBtn'),
             timeCircle: document.querySelector('.time-circle'),
+            progressRing: document.querySelector('.progress-ring-progress'),
             container: document.querySelector('.container')
         };
         
@@ -34,6 +36,7 @@ class PomodoroTimer {
         this.loadSettings();
         this.updateDisplay();
         this.updateStats();
+        this.initializeProgressRing();
     }
     
     initializeEventListeners() {
@@ -186,6 +189,12 @@ class PomodoroTimer {
             this.isPaused = true;
             clearInterval(this.timer);
             
+            // 自動開始タイマーもクリア
+            if (this.autoStartTimeout) {
+                clearTimeout(this.autoStartTimeout);
+                this.autoStartTimeout = null;
+            }
+            
             this.elements.startBtn.disabled = false;
             this.elements.pauseBtn.disabled = true;
             this.elements.timeCircle.classList.remove('active');
@@ -196,6 +205,12 @@ class PomodoroTimer {
         this.isRunning = false;
         this.isPaused = false;
         clearInterval(this.timer);
+        
+        // 自動開始タイマーもクリア
+        if (this.autoStartTimeout) {
+            clearTimeout(this.autoStartTimeout);
+            this.autoStartTimeout = null;
+        }
         
         this.setSessionTime();
         this.updateDisplay();
@@ -236,6 +251,11 @@ class PomodoroTimer {
         this.setSessionTime();
         this.updateDisplay();
         this.updateStats();
+        
+        // 3秒後に自動的に次のセッションを開始
+        this.autoStartTimeout = setTimeout(() => {
+            this.start();
+        }, 3000);
     }
     
     setSessionTime() {
@@ -264,6 +284,8 @@ class PomodoroTimer {
                 this.elements.timerLabel.textContent = '休憩時間';
                 break;
         }
+        
+        this.updateProgressRing();
     }
     
     updateSettings() {
@@ -365,9 +387,38 @@ class PomodoroTimer {
             document.documentElement.classList.add('compact-mode');
             this.isCompactMode = true;
             
-            // ウィンドウサイズを200x200に変更してクリックスルーを有効化
+            // ウィンドウサイズを170x170に変更してクリックスルーを有効化
             ipcRenderer.send('set-compact-mode', true);
         }
+    }
+    
+    initializeProgressRing() {
+        const radius = 54;
+        const circumference = 2 * Math.PI * radius;
+        this.elements.progressRing.style.strokeDasharray = circumference;
+        this.elements.progressRing.style.strokeDashoffset = circumference;
+    }
+    
+    updateProgressRing() {
+        const radius = 54;
+        const circumference = 2 * Math.PI * radius;
+        
+        let totalTime;
+        switch (this.currentSession) {
+            case 'work':
+                totalTime = this.workTime * 60;
+                break;
+            case 'break':
+                totalTime = this.breakTime * 60;
+                break;
+            default:
+                totalTime = this.workTime * 60;
+        }
+        
+        const progress = (totalTime - this.timeRemaining) / totalTime;
+        const offset = circumference - (progress * circumference);
+        
+        this.elements.progressRing.style.strokeDashoffset = offset;
     }
     
     loadStats() {
