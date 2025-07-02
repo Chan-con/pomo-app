@@ -25,7 +25,6 @@ class PomodoroTimer {
             breakTimeInput: document.getElementById('breakTime'),
             completedPomodorosSpan: document.getElementById('completedPomodoros'),
             totalTimeSpan: document.getElementById('totalTime'),
-            minimizeBtn: document.getElementById('minimizeBtn'),
             closeBtn: document.getElementById('closeBtn'),
             timeCircle: document.querySelector('.time-circle'),
             progressRing: document.querySelector('.progress-ring-progress'),
@@ -47,12 +46,9 @@ class PomodoroTimer {
         this.elements.workTimeInput.addEventListener('change', () => this.updateSettings());
         this.elements.breakTimeInput.addEventListener('change', () => this.updateSettings());
         
-        this.elements.minimizeBtn.addEventListener('click', () => {
-            ipcRenderer.send('minimize-to-tray');
-        });
         
         this.elements.closeBtn.addEventListener('click', () => {
-            ipcRenderer.send('close-app');
+            ipcRenderer.send('minimize-to-tray');
         });
         
         this.elements.timeCircle.addEventListener('dblclick', (e) => {

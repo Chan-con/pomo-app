@@ -375,18 +375,4 @@ body.compact-mode {
     text-align: center;
 }
 
-.btn-minimize {
-    background: none;
-    border: none;
-    color: #666;
-    cursor: pointer;
-    font-size: 12px;
-    padding: 5px 10px;
-    border-radius: 3px;
-    transition: background 0.3s ease;
-}
-
-.btn-minimize:hover {
-    background: #e0e0e0;
-}
 

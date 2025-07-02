@@ -15,7 +15,7 @@ function createWindow() {
     resizable: true,
     frame: false,
     transparent: true,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -116,15 +116,17 @@ ipcMain.on('set-window-position', (event, x, y) => {
 
 ipcMain.on('set-compact-mode', (event, isCompact) => {
   if (isCompact) {
-    // コンパクトモード: 170x170、リサイズ無効、透明部分をクリックスルー
+    // コンパクトモード: 170x170、リサイズ無効、透明部分をクリックスルー、最前面表示
     mainWindow.setSize(170, 170);
     mainWindow.setResizable(false);
     mainWindow.setIgnoreMouseEvents(true, { forward: true });
+    mainWindow.setAlwaysOnTop(true);
   } else {
-    // ノーマルモード: 元のサイズ、リサイズ有効、クリックスルー無効
+    // ノーマルモード: 元のサイズ、リサイズ有効、クリックスルー無効、最前面表示無効
     mainWindow.setIgnoreMouseEvents(false);
     mainWindow.setSize(400, 500);
     mainWindow.setResizable(true);
+    mainWindow.setAlwaysOnTop(false);
     // 確実にマウスイベントを有効にする
     setTimeout(() => {
       mainWindow.setIgnoreMouseEvents(false);
