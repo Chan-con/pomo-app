@@ -155,7 +155,7 @@ class PomodoroTimer {
     }
     
     start() {
-        if (!this.isRunning) {
+        if (!this.isRunning || this.isPaused) {
             this.isRunning = true;
             this.isPaused = false;
             
@@ -208,6 +208,8 @@ class PomodoroTimer {
             this.autoStartTimeout = null;
         }
         
+        // 常に作業セッションに戻す
+        this.currentSession = 'work';
         this.setSessionTime();
         this.updateDisplay();
         
@@ -248,10 +250,8 @@ class PomodoroTimer {
         this.updateDisplay();
         this.updateStats();
         
-        // 3秒後に自動的に次のセッションを開始
-        this.autoStartTimeout = setTimeout(() => {
-            this.start();
-        }, 3000);
+        // 即座に次のセッションを開始
+        this.start();
     }
     
     setSessionTime() {
