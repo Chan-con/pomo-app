@@ -4,6 +4,22 @@ const path = require('path');
 let mainWindow;
 let tray = null;
 
+// 2重起動防止
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window instead.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      if (!mainWindow.isVisible()) mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 400,
@@ -68,7 +84,7 @@ function createTray() {
   tray.setToolTip('ポモドーロタイマー');
   tray.setContextMenu(contextMenu);
   
-  tray.on('double-click', () => {
+  tray.on('click', () => {
     mainWindow.show();
     mainWindow.focus();
   });
