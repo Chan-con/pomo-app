@@ -163,6 +163,20 @@ body.compact-mode {
     animation: none !important;
 }
 
+.current-time {
+    font-size: 12px;
+    font-weight: bold;
+    color: #666;
+    font-family: 'Courier New', monospace;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    position: relative;
+    z-index: 2;
+    margin-bottom: 5px;
+}
+
 .time-text {
     font-size: clamp(24px, 6vw, 36px);
     font-weight: bold;
@@ -297,6 +311,11 @@ body.compact-mode {
 
 .compact-mode .time-text {
     font-size: 20px !important;
+}
+
+.compact-mode .current-time {
+    font-size: 8px !important;
+    margin-bottom: 2px;
 }
 
 .compact-mode .timer-label {

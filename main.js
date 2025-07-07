@@ -23,9 +23,9 @@ if (!gotTheLock) {
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 400,
-    height: 650,
+    height: 580,
     minWidth: 320,
-    minHeight: 550,
+    minHeight: 480,
     maxWidth: 600,
     maxHeight: 900,
     resizable: true,
@@ -140,7 +140,46 @@ ipcMain.on('set-compact-mode', (event, isCompact) => {
   } else {
     // ノーマルモード: 元のサイズ、リサイズ有効、クリックスルー無効、最前面表示無効
     mainWindow.setIgnoreMouseEvents(false);
-    mainWindow.setSize(400, 650);
+    
+    // 現在の位置を取得
+    const [currentX, currentY] = mainWindow.getPosition();
+    const { screen } = require('electron');
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+    const { x: screenX, y: screenY } = primaryDisplay.workArea;
+    
+    // 新しいウィンドウサイズ
+    const newWidth = 400;
+    const newHeight = 580;
+    
+    // 画面内に収まるように位置を調整
+    let adjustedX = currentX;
+    let adjustedY = currentY;
+    
+    // 右端チェック
+    if (currentX + newWidth > screenX + screenWidth) {
+      adjustedX = screenX + screenWidth - newWidth;
+    }
+    // 左端チェック
+    if (adjustedX < screenX) {
+      adjustedX = screenX;
+    }
+    
+    // 下端チェック
+    if (currentY + newHeight > screenY + screenHeight) {
+      adjustedY = screenY + screenHeight - newHeight;
+    }
+    // 上端チェック
+    if (adjustedY < screenY) {
+      adjustedY = screenY;
+    }
+    
+    // 位置を調整してからサイズを変更
+    if (adjustedX !== currentX || adjustedY !== currentY) {
+      mainWindow.setPosition(adjustedX, adjustedY);
+    }
+    
+    mainWindow.setSize(newWidth, newHeight);
     mainWindow.setResizable(true);
     mainWindow.setAlwaysOnTop(false);
     // 確実にマウスイベントを有効にする

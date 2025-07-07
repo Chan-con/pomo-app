@@ -7,7 +7,6 @@ class PomodoroTimer {
         this.timeRemaining = 25 * 60;
         this.currentSession = 'work';
         this.completedPomodoros = 0;
-        this.totalWorkTime = 0;
         this.timer = null;
         this.autoStartTimeout = null;
         this.isCompactMode = false;
@@ -28,11 +27,11 @@ class PomodoroTimer {
             syncTimeInput: document.getElementById('syncTime'),
             enableSyncCheckbox: document.getElementById('enableSync'),
             completedPomodorosSpan: document.getElementById('completedPomodoros'),
-            totalTimeSpan: document.getElementById('totalTime'),
             closeBtn: document.getElementById('closeBtn'),
             timeCircle: document.querySelector('.time-circle'),
             progressRing: document.querySelector('.progress-ring-progress'),
-            container: document.querySelector('.container')
+            container: document.querySelector('.container'),
+            currentTime: document.getElementById('currentTime')
         };
         
         this.initializeEventListeners();
@@ -40,10 +39,11 @@ class PomodoroTimer {
         this.updateDisplay();
         this.updateStats();
         this.initializeProgressRing();
+        this.startCurrentTimeUpdate();
     }
     
     initializeEventListeners() {
-        this.elements.startBtn.addEventListener('click', () => this.start());
+        this.elements.startBtn.addEventListener('click', () => this.startWithSync());
         this.elements.pauseBtn.addEventListener('click', () => this.pause());
         this.elements.resetBtn.addEventListener('click', () => this.reset());
         
@@ -160,7 +160,7 @@ class PomodoroTimer {
         });
     }
     
-    start() {
+    startWithSync() {
         if (!this.isRunning || this.isPaused) {
             this.lockSettings();
             
@@ -168,6 +168,13 @@ class PomodoroTimer {
                 this.waitForSyncTime();
                 return;
             }
+        }
+        this.start();
+    }
+    
+    start() {
+        if (!this.isRunning || this.isPaused) {
+            this.lockSettings();
             
             this.isRunning = true;
             this.isPaused = false;
@@ -182,8 +189,14 @@ class PomodoroTimer {
                 this.elements.timeCircle.classList.add('break');
             }
             
+            this.startTime = Date.now();
+            this.targetEndTime = this.startTime + (this.timeRemaining * 1000);
+            
             this.timer = setInterval(() => {
-                this.timeRemaining--;
+                const now = Date.now();
+                const elapsed = Math.floor((now - this.startTime) / 1000);
+                this.timeRemaining = Math.max(0, Math.floor((this.targetEndTime - now) / 1000));
+                
                 this.updateDisplay();
                 
                 if (this.timeRemaining <= 0) {
@@ -215,6 +228,12 @@ class PomodoroTimer {
         this.isPaused = false;
         clearInterval(this.timer);
         
+        // 同期待機タイマーもクリア
+        if (this.waitTimer) {
+            clearInterval(this.waitTimer);
+            this.waitTimer = null;
+        }
+        
         // 自動開始タイマーもクリア
         if (this.autoStartTimeout) {
             clearTimeout(this.autoStartTimeout);
@@ -225,6 +244,11 @@ class PomodoroTimer {
         this.currentSession = 'work';
         this.setSessionTime();
         this.updateDisplay();
+        
+        // 統計をリセット
+        this.completedPomodoros = 0;
+        this.saveStats();
+        this.updateStats();
         
         this.elements.startBtn.disabled = false;
         this.elements.pauseBtn.disabled = true;
@@ -243,7 +267,6 @@ class PomodoroTimer {
         
         if (this.currentSession === 'work') {
             this.completedPomodoros++;
-            this.totalWorkTime += this.workTime;
             this.saveStats();
             
             this.currentSession = 'break';
@@ -265,7 +288,7 @@ class PomodoroTimer {
         this.updateDisplay();
         this.updateStats();
         
-        // 即座に次のセッションを開始
+        // 次のセッションをすぐに開始
         this.start();
     }
     
@@ -305,6 +328,13 @@ class PomodoroTimer {
         this.syncTime = parseInt(this.elements.syncTimeInput.value) || 0;
         this.enableSync = this.elements.enableSyncCheckbox.checked;
         
+        // リアルタイム同期が有効な場合は一時停止ボタンを無効化
+        if (this.enableSync && this.isRunning) {
+            this.elements.pauseBtn.disabled = true;
+        } else if (!this.enableSync && this.isRunning) {
+            this.elements.pauseBtn.disabled = false;
+        }
+        
         if (!this.isRunning) {
             this.setSessionTime();
             this.updateDisplay();
@@ -315,7 +345,6 @@ class PomodoroTimer {
     
     updateStats() {
         this.elements.completedPomodorosSpan.textContent = this.completedPomodoros;
-        this.elements.totalTimeSpan.textContent = `${this.totalWorkTime}分`;
     }
     
     saveSettings() {
@@ -352,13 +381,11 @@ class PomodoroTimer {
         
         if (!stats[today]) {
             stats[today] = {
-                completedPomodoros: 0,
-                totalWorkTime: 0
+                completedPomodoros: 0
             };
         }
         
         stats[today].completedPomodoros = this.completedPomodoros;
-        stats[today].totalWorkTime = this.totalWorkTime;
         
         localStorage.setItem('pomodoroStats', JSON.stringify(stats));
     }
@@ -446,7 +473,6 @@ class PomodoroTimer {
         
         if (stats[today]) {
             this.completedPomodoros = stats[today].completedPomodoros || 0;
-            this.totalWorkTime = stats[today].totalWorkTime || 0;
         }
     }
     
@@ -470,10 +496,11 @@ class PomodoroTimer {
         this.elements.timerLabel.textContent = `${targetMinute}分まで待機中...`;
         this.elements.timeDisplay.textContent = `${Math.floor(millisecondsUntilTarget / 1000 / 60).toString().padStart(2, '0')}:${Math.floor((millisecondsUntilTarget / 1000) % 60).toString().padStart(2, '0')}`;
         
-        const waitTimer = setInterval(() => {
+        this.waitTimer = setInterval(() => {
             const remaining = millisecondsUntilTarget - (Date.now() - now.getTime());
             if (remaining <= 0) {
-                clearInterval(waitTimer);
+                clearInterval(this.waitTimer);
+                this.waitTimer = null;
                 this.setSessionTime();
                 this.updateDisplay();
                 this.startTimer();
@@ -488,7 +515,7 @@ class PomodoroTimer {
         this.isPaused = false;
         
         this.elements.startBtn.disabled = true;
-        this.elements.pauseBtn.disabled = false;
+        this.elements.pauseBtn.disabled = this.enableSync;
         this.elements.timeCircle.classList.add('active');
         
         if (this.currentSession === 'work') {
@@ -497,8 +524,14 @@ class PomodoroTimer {
             this.elements.timeCircle.classList.add('break');
         }
         
+        this.startTime = Date.now();
+        this.targetEndTime = this.startTime + (this.timeRemaining * 1000);
+        
         this.timer = setInterval(() => {
-            this.timeRemaining--;
+            const now = Date.now();
+            const elapsed = Math.floor((now - this.startTime) / 1000);
+            this.timeRemaining = Math.max(0, Math.floor((this.targetEndTime - now) / 1000));
+            
             this.updateDisplay();
             
             if (this.timeRemaining <= 0) {
@@ -519,6 +552,24 @@ class PomodoroTimer {
         this.elements.breakTimeInput.disabled = false;
         this.elements.syncTimeInput.disabled = false;
         this.elements.enableSyncCheckbox.disabled = false;
+    }
+    
+    startCurrentTimeUpdate() {
+        this.updateCurrentTime();
+        setInterval(() => {
+            this.updateCurrentTime();
+        }, 1000);
+    }
+    
+    updateCurrentTime() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('ja-JP', { 
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        this.elements.currentTime.textContent = timeString;
     }
 }
 
