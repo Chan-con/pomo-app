@@ -4,6 +4,12 @@ const path = require('path');
 let mainWindow;
 let tray = null;
 
+// 各モードの座標を個別に保存
+let savedPositions = {
+  normal: { x: null, y: null },
+  compact: { x: null, y: null }
+};
+
 // 2重起動防止
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -131,18 +137,32 @@ ipcMain.on('set-window-position', (event, x, y) => {
 });
 
 ipcMain.on('set-compact-mode', (event, isCompact) => {
+  // 現在の位置を保存
+  const [currentX, currentY] = mainWindow.getPosition();
+  
   if (isCompact) {
+    // ノーマルモードの座標を保存
+    savedPositions.normal.x = currentX;
+    savedPositions.normal.y = currentY;
+    
+    // コンパクトモードの座標が保存されていれば復元
+    if (savedPositions.compact.x !== null && savedPositions.compact.y !== null) {
+      mainWindow.setPosition(savedPositions.compact.x, savedPositions.compact.y);
+    }
+    
     // コンパクトモード: 170x170、リサイズ無効、透明部分をクリックスルー、最前面表示
     mainWindow.setSize(170, 170);
     mainWindow.setResizable(false);
     mainWindow.setIgnoreMouseEvents(true, { forward: true });
     mainWindow.setAlwaysOnTop(true);
   } else {
+    // コンパクトモードの座標を保存
+    savedPositions.compact.x = currentX;
+    savedPositions.compact.y = currentY;
+    
     // ノーマルモード: 元のサイズ、リサイズ有効、クリックスルー無効、最前面表示無効
     mainWindow.setIgnoreMouseEvents(false);
     
-    // 現在の位置を取得
-    const [currentX, currentY] = mainWindow.getPosition();
     const { screen } = require('electron');
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
@@ -152,12 +172,16 @@ ipcMain.on('set-compact-mode', (event, isCompact) => {
     const newWidth = 400;
     const newHeight = 580;
     
+    // ノーマルモードの座標が保存されていれば復元、なければ現在位置を調整
+    let targetX = savedPositions.normal.x !== null ? savedPositions.normal.x : currentX;
+    let targetY = savedPositions.normal.y !== null ? savedPositions.normal.y : currentY;
+    
     // 画面内に収まるように位置を調整
-    let adjustedX = currentX;
-    let adjustedY = currentY;
+    let adjustedX = targetX;
+    let adjustedY = targetY;
     
     // 右端チェック
-    if (currentX + newWidth > screenX + screenWidth) {
+    if (targetX + newWidth > screenX + screenWidth) {
       adjustedX = screenX + screenWidth - newWidth;
     }
     // 左端チェック
@@ -166,7 +190,7 @@ ipcMain.on('set-compact-mode', (event, isCompact) => {
     }
     
     // 下端チェック
-    if (currentY + newHeight > screenY + screenHeight) {
+    if (targetY + newHeight > screenY + screenHeight) {
       adjustedY = screenY + screenHeight - newHeight;
     }
     // 上端チェック
@@ -175,10 +199,7 @@ ipcMain.on('set-compact-mode', (event, isCompact) => {
     }
     
     // 位置を調整してからサイズを変更
-    if (adjustedX !== currentX || adjustedY !== currentY) {
-      mainWindow.setPosition(adjustedX, adjustedY);
-    }
-    
+    mainWindow.setPosition(adjustedX, adjustedY);
     mainWindow.setSize(newWidth, newHeight);
     mainWindow.setResizable(true);
     mainWindow.setAlwaysOnTop(false);
