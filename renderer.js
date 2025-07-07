@@ -14,6 +14,8 @@ class PomodoroTimer {
         
         this.workTime = 25;
         this.breakTime = 5;
+        this.syncTime = 0;
+        this.enableSync = false;
         
         this.elements = {
             timeDisplay: document.getElementById('timeDisplay'),
@@ -23,6 +25,8 @@ class PomodoroTimer {
             resetBtn: document.getElementById('resetBtn'),
             workTimeInput: document.getElementById('workTime'),
             breakTimeInput: document.getElementById('breakTime'),
+            syncTimeInput: document.getElementById('syncTime'),
+            enableSyncCheckbox: document.getElementById('enableSync'),
             completedPomodorosSpan: document.getElementById('completedPomodoros'),
             totalTimeSpan: document.getElementById('totalTime'),
             closeBtn: document.getElementById('closeBtn'),
@@ -45,6 +49,8 @@ class PomodoroTimer {
         
         this.elements.workTimeInput.addEventListener('change', () => this.updateSettings());
         this.elements.breakTimeInput.addEventListener('change', () => this.updateSettings());
+        this.elements.syncTimeInput.addEventListener('change', () => this.updateSettings());
+        this.elements.enableSyncCheckbox.addEventListener('change', () => this.updateSettings());
         
         
         this.elements.closeBtn.addEventListener('click', () => {
@@ -156,6 +162,13 @@ class PomodoroTimer {
     
     start() {
         if (!this.isRunning || this.isPaused) {
+            this.lockSettings();
+            
+            if (this.enableSync && !this.isPaused) {
+                this.waitForSyncTime();
+                return;
+            }
+            
             this.isRunning = true;
             this.isPaused = false;
             
@@ -216,6 +229,8 @@ class PomodoroTimer {
         this.elements.startBtn.disabled = false;
         this.elements.pauseBtn.disabled = true;
         this.elements.timeCircle.classList.remove('active', 'break');
+        
+        this.unlockSettings();
     }
     
     completeSession() {
@@ -274,10 +289,10 @@ class PomodoroTimer {
         
         switch (this.currentSession) {
             case 'work':
-                this.elements.timerLabel.textContent = '作業時間';
+                this.elements.timerLabel.textContent = this.enableSync && !this.isRunning ? `作業時間 (${this.syncTime}分開始)` : '作業時間';
                 break;
             case 'break':
-                this.elements.timerLabel.textContent = '休憩時間';
+                this.elements.timerLabel.textContent = this.enableSync && !this.isRunning ? `休憩時間 (${this.syncTime}分開始)` : '休憩時間';
                 break;
         }
         
@@ -287,6 +302,8 @@ class PomodoroTimer {
     updateSettings() {
         this.workTime = parseInt(this.elements.workTimeInput.value) || 25;
         this.breakTime = parseInt(this.elements.breakTimeInput.value) || 5;
+        this.syncTime = parseInt(this.elements.syncTimeInput.value) || 0;
+        this.enableSync = this.elements.enableSyncCheckbox.checked;
         
         if (!this.isRunning) {
             this.setSessionTime();
@@ -304,7 +321,9 @@ class PomodoroTimer {
     saveSettings() {
         const settings = {
             workTime: this.workTime,
-            breakTime: this.breakTime
+            breakTime: this.breakTime,
+            syncTime: this.syncTime,
+            enableSync: this.enableSync
         };
         localStorage.setItem('pomodoroSettings', JSON.stringify(settings));
     }
@@ -315,9 +334,13 @@ class PomodoroTimer {
             const settings = JSON.parse(savedSettings);
             this.workTime = settings.workTime || 25;
             this.breakTime = settings.breakTime || 5;
+            this.syncTime = settings.syncTime || 0;
+            this.enableSync = settings.enableSync || false;
             
             this.elements.workTimeInput.value = this.workTime;
             this.elements.breakTimeInput.value = this.breakTime;
+            this.elements.syncTimeInput.value = this.syncTime;
+            this.elements.enableSyncCheckbox.checked = this.enableSync;
         }
         
         this.setSessionTime();
@@ -425,6 +448,77 @@ class PomodoroTimer {
             this.completedPomodoros = stats[today].completedPomodoros || 0;
             this.totalWorkTime = stats[today].totalWorkTime || 0;
         }
+    }
+    
+    waitForSyncTime() {
+        const now = new Date();
+        const currentMinute = now.getMinutes();
+        const currentSecond = now.getSeconds();
+        
+        let targetMinute = this.syncTime;
+        let minutesUntilTarget;
+        
+        if (currentMinute < targetMinute) {
+            minutesUntilTarget = targetMinute - currentMinute;
+        } else {
+            minutesUntilTarget = 60 - currentMinute + targetMinute;
+        }
+        
+        const millisecondsUntilTarget = (minutesUntilTarget * 60 - currentSecond) * 1000 - now.getMilliseconds();
+        
+        this.elements.startBtn.disabled = true;
+        this.elements.timerLabel.textContent = `${targetMinute}分まで待機中...`;
+        this.elements.timeDisplay.textContent = `${Math.floor(millisecondsUntilTarget / 1000 / 60).toString().padStart(2, '0')}:${Math.floor((millisecondsUntilTarget / 1000) % 60).toString().padStart(2, '0')}`;
+        
+        const waitTimer = setInterval(() => {
+            const remaining = millisecondsUntilTarget - (Date.now() - now.getTime());
+            if (remaining <= 0) {
+                clearInterval(waitTimer);
+                this.setSessionTime();
+                this.updateDisplay();
+                this.startTimer();
+            } else {
+                this.elements.timeDisplay.textContent = `${Math.floor(remaining / 1000 / 60).toString().padStart(2, '0')}:${Math.floor((remaining / 1000) % 60).toString().padStart(2, '0')}`;
+            }
+        }, 100);
+    }
+    
+    startTimer() {
+        this.isRunning = true;
+        this.isPaused = false;
+        
+        this.elements.startBtn.disabled = true;
+        this.elements.pauseBtn.disabled = false;
+        this.elements.timeCircle.classList.add('active');
+        
+        if (this.currentSession === 'work') {
+            this.elements.timeCircle.classList.remove('break');
+        } else if (this.currentSession === 'break') {
+            this.elements.timeCircle.classList.add('break');
+        }
+        
+        this.timer = setInterval(() => {
+            this.timeRemaining--;
+            this.updateDisplay();
+            
+            if (this.timeRemaining <= 0) {
+                this.completeSession();
+            }
+        }, 1000);
+    }
+    
+    lockSettings() {
+        this.elements.workTimeInput.disabled = true;
+        this.elements.breakTimeInput.disabled = true;
+        this.elements.syncTimeInput.disabled = true;
+        this.elements.enableSyncCheckbox.disabled = true;
+    }
+    
+    unlockSettings() {
+        this.elements.workTimeInput.disabled = false;
+        this.elements.breakTimeInput.disabled = false;
+        this.elements.syncTimeInput.disabled = false;
+        this.elements.enableSyncCheckbox.disabled = false;
     }
 }
 

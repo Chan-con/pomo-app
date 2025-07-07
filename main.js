@@ -23,11 +23,11 @@ if (!gotTheLock) {
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 400,
-    height: 500,
+    height: 650,
     minWidth: 320,
-    minHeight: 400,
+    minHeight: 550,
     maxWidth: 600,
-    maxHeight: 800,
+    maxHeight: 900,
     resizable: true,
     frame: false,
     transparent: true,
@@ -140,7 +140,7 @@ ipcMain.on('set-compact-mode', (event, isCompact) => {
   } else {
     // ノーマルモード: 元のサイズ、リサイズ有効、クリックスルー無効、最前面表示無効
     mainWindow.setIgnoreMouseEvents(false);
-    mainWindow.setSize(400, 500);
+    mainWindow.setSize(400, 650);
     mainWindow.setResizable(true);
     mainWindow.setAlwaysOnTop(false);
     // 確実にマウスイベントを有効にする
