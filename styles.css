@@ -306,7 +306,50 @@ body.compact-mode {
     box-sizing: border-box !important;
     overflow: hidden !important;
     transform: none !important;
-    transition: none !important;
+    transition: opacity 0.3s ease !important;
+    /* 右クリックのみ受け取る */
+    pointer-events: auto !important;
+}
+
+.compact-mode .time-circle.hover-transparent {
+    opacity: 0.3 !important;
+}
+
+
+/* ハンドル領域 */
+.handle-area {
+    display: none; /* デフォルトでは非表示 */
+}
+
+.compact-mode .handle-area {
+    display: block;
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 16px;
+    height: 16px;
+    background: rgba(226, 74, 74, 0.15);
+    border-radius: 50%;
+    cursor: move;
+    z-index: 1000;
+    pointer-events: auto;
+    transition: all 0.2s ease;
+}
+
+.compact-mode .handle-area:hover {
+    background: rgba(226, 74, 74, 0.25);
+}
+
+/* 透明度制御（背面視認性向上） */
+.compact-mode.mouse-outside {
+    opacity: 0.3;
+    transition: opacity 0.2s ease;
+}
+
+.compact-mode.mouse-inside {
+    opacity: 1;
+    transition: opacity 0.2s ease;
 }
 
 .compact-mode .time-text {
@@ -393,5 +436,7 @@ body.compact-mode {
     border-top: 1px solid #e0e0e0;
     text-align: center;
 }
+
+/* コンテキストメニューのCSSを削除（スペースキーベースの操作に変更） */
 
 

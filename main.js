@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, Tray, Menu, nativeImage, globalShortcut } = require('electron');
 const path = require('path');
 
 let mainWindow;
@@ -57,12 +57,20 @@ function createWindow() {
       mainWindow.hide();
     }
   });
+  
+  // 右クリックメニュー関連のblurイベントを削除
 }
 
 app.whenReady().then(() => {
   createWindow();
   createTray();
+  registerGlobalShortcuts();
 });
+
+function registerGlobalShortcuts() {
+  // グローバルショートカットは削除（他のアプリケーションに影響するため）
+  // 代わりに弧状ハンドル領域を使用
+}
 
 function createTray() {
   // Use the app icon for the tray (will be resized automatically)
@@ -150,9 +158,10 @@ ipcMain.on('set-compact-mode', (event, isCompact) => {
       mainWindow.setPosition(savedPositions.compact.x, savedPositions.compact.y);
     }
     
-    // コンパクトモード: 170x170、リサイズ無効、透明部分をクリックスルー、最前面表示
+    // コンパクトモード: 170x170、リサイズ無効、基本はクリックスルー、最前面表示
     mainWindow.setSize(170, 170);
     mainWindow.setResizable(false);
+    // 基本状態：完全クリックスルー（背面アプリ操作可能）
     mainWindow.setIgnoreMouseEvents(true, { forward: true });
     mainWindow.setAlwaysOnTop(true);
   } else {
@@ -210,7 +219,18 @@ ipcMain.on('set-compact-mode', (event, isCompact) => {
   }
 });
 
-// コンパクトモードでの一時的なマウスイベント制御
+// ドラッグモード制御（コンパクトモード専用）
+ipcMain.on('enable-drag-mode', () => {
+  console.log('🟢 Enabling drag mode');
+  mainWindow.setIgnoreMouseEvents(false);
+});
+
+ipcMain.on('disable-drag-mode', () => {
+  console.log('🔴 Disabling drag mode (click-through enabled)');
+  mainWindow.setIgnoreMouseEvents(true, { forward: true });
+});
+
+// 従来のマウスイベント制御（互換性のため残しておく）
 ipcMain.on('enable-mouse-events', () => {
   mainWindow.setIgnoreMouseEvents(false);
 });

@@ -1,0 +1,1 @@
+feat: Add Windows installer build settings

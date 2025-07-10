@@ -16,7 +16,10 @@
       "Bash(git branch:*)",
       "Bash(git push:*)",
       "Bash(mkdir:*)",
-      "Bash(npm run package:win:*)"
+      "Bash(npm run package:win:*)",
+      "Bash(find:*)",
+      "Bash(rg:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

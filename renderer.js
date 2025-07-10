@@ -31,7 +31,8 @@ class PomodoroTimer {
             timeCircle: document.querySelector('.time-circle'),
             progressRing: document.querySelector('.progress-ring-progress'),
             container: document.querySelector('.container'),
-            currentTime: document.getElementById('currentTime')
+            currentTime: document.getElementById('currentTime'),
+            handleArea: document.getElementById('handleArea')
         };
         
         this.initializeEventListeners();
@@ -40,7 +41,295 @@ class PomodoroTimer {
         this.updateStats();
         this.initializeProgressRing();
         this.startCurrentTimeUpdate();
+        
+        // ハンドル領域の監視
+        this.initializeHandleArea();
     }
+    
+    
+    initializeHandleArea() {
+        console.log('🔵 Initializing handle area...');
+        console.log('🔵 Handle area element:', this.elements.handleArea);
+        
+        if (!this.elements.handleArea) {
+            console.error('❌ Handle area element not found!');
+            return;
+        }
+        
+        let isDragging = false;
+        let startMouseX, startMouseY;
+        let startWindowX, startWindowY;
+        let dragModeEnabled = false;
+        let hoverCheckInterval = null;
+        let dragModeTimeout = null;
+        let transparencyCheckInterval = null;
+        let isMouseInside = false;
+        let windowMouseEnterHandler = null;
+        let windowMouseLeaveHandler = null;
+        
+        // 透明度制御関数
+        const updateTransparency = (state) => {
+            // state: 'default' | 'transparent' | 'opaque'
+            const container = document.querySelector('.container');
+            
+            // コンパクトモードでない場合は何もしない
+            if (!container.classList.contains('compact-mode')) {
+                return;
+            }
+            
+            container.classList.remove('mouse-outside', 'mouse-inside');
+            
+            if (state === 'transparent') {
+                console.log('🔷 Making transparent (mouse on window but not handle)');
+                container.classList.add('mouse-outside');
+            } else if (state === 'opaque') {
+                console.log('🔶 Making opaque (mouse on handle or dragging)');
+                container.classList.add('mouse-inside');
+            } else {
+                console.log('🔹 Default state (mouse outside window)');
+                // デフォルトは不透明（CSSクラスなし）
+            }
+        };
+        
+        // 透明度チェック制御
+        const startTransparencyCheck = () => {
+            console.log('🔶 Starting transparency check (mouseenter/leave based)');
+            
+            // イベントリスナーを作成
+            windowMouseEnterHandler = () => {
+                console.log('🔶 Window mouseenter');
+                updateTransparency('transparent');
+            };
+            
+            windowMouseLeaveHandler = () => {
+                console.log('🔷 Window mouseleave');
+                updateTransparency('default');
+            };
+            
+            // イベントリスナーを追加
+            document.addEventListener('mouseenter', windowMouseEnterHandler);
+            document.addEventListener('mouseleave', windowMouseLeaveHandler);
+        };
+        
+        const stopTransparencyCheck = () => {
+            console.log('🔷 Stopping transparency check');
+            
+            // イベントリスナーを削除
+            if (windowMouseEnterHandler) {
+                document.removeEventListener('mouseenter', windowMouseEnterHandler);
+                windowMouseEnterHandler = null;
+            }
+            if (windowMouseLeaveHandler) {
+                document.removeEventListener('mouseleave', windowMouseLeaveHandler);
+                windowMouseLeaveHandler = null;
+            }
+            
+            // 透明度クラスをクリア
+            const container = document.querySelector('.container');
+            container.classList.remove('mouse-outside', 'mouse-inside');
+        };
+        
+        // ドラッグモード制御関数
+        const enableDragMode = () => {
+            if (!dragModeEnabled) {
+                console.log('🟢 Enabling drag mode');
+                dragModeEnabled = true;
+                ipcRenderer.send('enable-drag-mode');
+                
+                // 3秒後に自動的にドラッグモードを無効化
+                if (dragModeTimeout) clearTimeout(dragModeTimeout);
+                dragModeTimeout = setTimeout(() => {
+                    if (!isDragging) {
+                        disableDragMode();
+                    }
+                }, 3000);
+            }
+        };
+        
+        const disableDragMode = () => {
+            if (dragModeEnabled && !isDragging) {
+                console.log('🔴 Disabling drag mode');
+                dragModeEnabled = false;
+                ipcRenderer.send('disable-drag-mode');
+                if (dragModeTimeout) {
+                    clearTimeout(dragModeTimeout);
+                    dragModeTimeout = null;
+                }
+            }
+        };
+        
+        // ホバーチェック制御
+        const startHoverCheck = () => {
+            if (hoverCheckInterval) return;
+            
+            console.log('🔵 Starting hover check');
+            hoverCheckInterval = setInterval(() => {
+                // 500ms間隔でドラッグモードを一瞬有効化してホバーチェック
+                if (!dragModeEnabled && !isDragging) {
+                    ipcRenderer.send('enable-drag-mode');
+                    
+                    // 50ms後にクリックスルーに戻す（ホバー中でない場合）
+                    setTimeout(() => {
+                        if (!dragModeEnabled && !isDragging) {
+                            ipcRenderer.send('disable-drag-mode');
+                        }
+                    }, 50);
+                }
+            }, 500);
+        };
+        
+        const stopHoverCheck = () => {
+            if (hoverCheckInterval) {
+                console.log('🔵 Stopping hover check');
+                clearInterval(hoverCheckInterval);
+                hoverCheckInterval = null;
+            }
+        };
+        
+        // ハンドル領域のホバー検知
+        this.elements.handleArea.addEventListener('mouseenter', () => {
+            console.log('🟡 Handle area hovered');
+            enableDragMode();
+            updateTransparency('opaque'); // ハンドル領域では常に不透明
+        });
+        
+        this.elements.handleArea.addEventListener('mouseleave', () => {
+            console.log('🟡 Handle area left');
+            // ドラッグ中でなければドラッグモードを無効化
+            if (!isDragging) {
+                setTimeout(disableDragMode, 100);
+            }
+        });
+        
+        // ハンドル領域のドラッグ処理
+        this.elements.handleArea.addEventListener('mousedown', (e) => {
+            console.log('🔴 Handle area mousedown event fired!', e.button, e.clientX, e.clientY);
+            console.log('🔴 Handle area element:', this.elements.handleArea);
+            console.log('🔴 Event target:', e.target);
+            
+            if (e.button === 0) { // 左クリック
+                isDragging = true;
+                console.log('🔴 Starting drag operation');
+                
+                // ドラッグ中は不透明を維持
+                updateTransparency('opaque');
+                
+                // 開始位置を記録
+                startMouseX = e.screenX;
+                startMouseY = e.screenY;
+                console.log('🔴 Start mouse position:', startMouseX, startMouseY);
+                
+                // ウィンドウの開始位置を取得
+                ipcRenderer.invoke('get-window-position').then(([windowX, windowY]) => {
+                    startWindowX = windowX;
+                    startWindowY = windowY;
+                    console.log('🔴 Window start position:', windowX, windowY);
+                });
+                
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+        
+        // グローバルマウス移動イベント
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging && startWindowX !== undefined) {
+                const deltaX = e.screenX - startMouseX;
+                const deltaY = e.screenY - startMouseY;
+                
+                const newX = startWindowX + deltaX;
+                const newY = startWindowY + deltaY;
+                
+                console.log('🟡 Dragging window to:', newX, newY, 'delta:', deltaX, deltaY);
+                ipcRenderer.send('set-window-position', newX, newY);
+            }
+        });
+        
+        // グローバルマウスアップイベント
+        document.addEventListener('mouseup', (e) => {
+            if (e.button === 0 && isDragging) {
+                console.log('🟢 Drag ended');
+                isDragging = false;
+                startMouseX = undefined;
+                startMouseY = undefined;
+                startWindowX = undefined;
+                startWindowY = undefined;
+                
+                // ドラッグ終了後、1秒後にドラッグモードを無効化
+                setTimeout(() => {
+                    disableDragMode();
+                }, 1000);
+            }
+        });
+        
+        // ハンドル領域のダブルクリック処理
+        this.elements.handleArea.addEventListener('dblclick', (e) => {
+            console.log('🟣 Handle area double clicked - switching to normal mode');
+            console.log('🟣 Event target:', e.target);
+            this.toggleCompactMode();
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        
+        // タイマー円のダブルクリック処理（ノーマル→コンパクト）
+        this.elements.timeCircle.addEventListener('dblclick', (e) => {
+            const isCurrentlyCompact = document.querySelector('.container').classList.contains('compact-mode');
+            
+            if (!isCurrentlyCompact) {
+                console.log('Timer circle double clicked - switching to compact mode');
+                this.toggleCompactMode();
+            }
+            // コンパクトモード時はハンドル領域でのみ処理
+        });
+        
+        // デバッグ：ハンドル領域の状態をチェック
+        console.log('🔵 Handle area setup completed');
+        console.log('🔵 Handle area computed style:', window.getComputedStyle(this.elements.handleArea));
+        
+        // コンパクトモード切り替え時の制御
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    // 非同期で処理して無限ループを防ぐ
+                    setTimeout(() => {
+                        const isCompact = document.querySelector('.container').classList.contains('compact-mode');
+                        console.log('🔵 Mode changed - Compact:', isCompact);
+                        
+                        if (isCompact) {
+                            console.log('🔵 Starting hover check for compact mode');
+                            startHoverCheck();
+                            startTransparencyCheck();
+                            // 初期状態は不透明（マウスが外にあるため）
+                            updateTransparency('default');
+                        } else {
+                            console.log('🔵 Stopping hover check for normal mode');
+                            stopHoverCheck();
+                            stopTransparencyCheck();
+                            disableDragMode();
+                            // ノーマルモードでは不透明（透明度クラスは既にクリア済み）
+                        }
+                    }, 0);
+                }
+            });
+        });
+        
+        observer.observe(document.querySelector('.container'), {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+        
+        // 初期状態チェック
+        const isInitiallyCompact = document.querySelector('.container').classList.contains('compact-mode');
+        if (isInitiallyCompact) {
+            console.log('🔵 Initial compact mode detected - starting systems');
+            startHoverCheck();
+            startTransparencyCheck();
+            updateTransparency('default');
+        } else {
+            updateTransparency('opaque');
+        }
+    }
+    
     
     initializeEventListeners() {
         this.elements.startBtn.addEventListener('click', () => this.startWithSync());
@@ -57,107 +346,6 @@ class PomodoroTimer {
             ipcRenderer.send('minimize-to-tray');
         });
         
-        this.elements.timeCircle.addEventListener('dblclick', (e) => {
-            const isCurrentlyCompact = document.querySelector('.container').classList.contains('compact-mode');
-            this.toggleCompactMode();
-        });
-        
-        
-        // コンパクトモードでのドラッグ機能
-        let isDragging = false;
-        let startMouseX, startMouseY;
-        let startWindowX, startWindowY;
-        let lastClickTime = 0;
-        let mouseMoved = false;
-        
-        this.elements.timeCircle.addEventListener('mousedown', (e) => {
-            const isCompactDirect = document.querySelector('.container').classList.contains('compact-mode');
-            
-            if (isCompactDirect) {
-                // コンパクトモード時は常にマウスイベントを有効にする
-                ipcRenderer.send('enable-mouse-events');
-                
-                const currentTime = Date.now();
-                const timeDiff = currentTime - lastClickTime;
-                
-                // ダブルクリック検出（400ms以内の2回目のクリック、最小50ms間隔）
-                if (timeDiff < 400 && timeDiff > 50) {
-                    // ダブルクリック検出時
-                    this.toggleCompactMode();
-                    lastClickTime = 0;
-                    isDragging = false;
-                    mouseMoved = false;
-                    e.preventDefault();
-                    return;
-                }
-                
-                // ドラッグ準備
-                lastClickTime = currentTime;
-                isDragging = true;
-                mouseMoved = false;
-                
-                // 開始位置を記録
-                startMouseX = e.screenX;
-                startMouseY = e.screenY;
-                
-                // ウィンドウの開始位置を取得
-                ipcRenderer.invoke('get-window-position').then(([windowX, windowY]) => {
-                    startWindowX = windowX;
-                    startWindowY = windowY;
-                });
-                
-                e.preventDefault();
-            }
-        });
-        
-        document.addEventListener('mousemove', (e) => {
-            const isCompactDirect = document.querySelector('.container').classList.contains('compact-mode');
-            
-            if (isCompactDirect) {
-                // ドラッグ処理
-                if (isDragging && startWindowX !== undefined) {
-                    // マウスの移動量を計算
-                    const deltaX = e.screenX - startMouseX;
-                    const deltaY = e.screenY - startMouseY;
-                    
-                    // マウスが一定以上動いたことを記録（ダブルクリック検出をキャンセル）
-                    if (!mouseMoved && (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5)) {
-                        mouseMoved = true;
-                        // ドラッグが開始された場合、ダブルクリック検出をリセット
-                        lastClickTime = 0;
-                    }
-                    
-                    // マウスが動いた場合のみウィンドウを移動
-                    if (mouseMoved) {
-                        const newX = startWindowX + deltaX;
-                        const newY = startWindowY + deltaY;
-                        ipcRenderer.send('set-window-position', newX, newY);
-                    }
-                } else {
-                    // クリックスルー制御（ドラッグ中でない時のみ）
-                    const rect = this.elements.timeCircle.getBoundingClientRect();
-                    const centerX = rect.left + rect.width / 2;
-                    const centerY = rect.top + rect.height / 2;
-                    const radius = rect.width / 2;
-                    const distance = Math.sqrt(Math.pow(e.clientX - centerX, 2) + Math.pow(e.clientY - centerY, 2));
-                    
-                    if (distance > radius) {
-                        ipcRenderer.send('disable-mouse-events');
-                    } else {
-                        ipcRenderer.send('enable-mouse-events');
-                    }
-                }
-            }
-        });
-
-        document.addEventListener('mouseup', () => {
-            isDragging = false;
-            mouseMoved = false;
-            startMouseX = undefined;
-            startMouseY = undefined;
-            startWindowX = undefined;
-            startWindowY = undefined;
-        });
     }
     
     startWithSync() {
@@ -393,6 +581,8 @@ class PomodoroTimer {
     toggleCompactMode() {
         const currentlyCompact = this.elements.container.classList.contains('compact-mode');
         
+        console.log('🔄 Toggling compact mode - currently compact:', currentlyCompact);
+        
         // 非表示にする要素を取得
         const header = document.querySelector('.header');
         const controls = document.querySelector('.controls');
@@ -401,17 +591,7 @@ class PomodoroTimer {
         const footer = document.querySelector('.footer');
         
         if (currentlyCompact) {
-            // ノーマルモードに戻す - マウスイベントを最初に有効化
-            ipcRenderer.send('enable-mouse-events');
-            
-            // ウィンドウサイズを変更
-            ipcRenderer.send('set-compact-mode', false);
-            
-            // CSSクラスを削除
-            this.elements.container.classList.remove('compact-mode');
-            document.body.classList.remove('compact-mode');
-            document.documentElement.classList.remove('compact-mode');
-            this.isCompactMode = false;
+            console.log('🔄 Switching to normal mode');
             
             // 要素を表示
             if (header) header.style.display = '';
@@ -419,7 +599,18 @@ class PomodoroTimer {
             if (settings) settings.style.display = '';
             if (stats) stats.style.display = '';
             if (footer) footer.style.display = '';
+            
+            // CSSクラスを削除
+            this.elements.container.classList.remove('compact-mode');
+            document.body.classList.remove('compact-mode');
+            document.documentElement.classList.remove('compact-mode');
+            this.isCompactMode = false;
+            
+            // ウィンドウサイズ変更とマウスイベント有効化
+            ipcRenderer.send('set-compact-mode', false);
         } else {
+            console.log('🔄 Switching to compact mode');
+            
             // 要素を先に非表示
             if (header) header.style.display = 'none';
             if (controls) controls.style.display = 'none';
@@ -427,7 +618,7 @@ class PomodoroTimer {
             if (stats) stats.style.display = 'none';
             if (footer) footer.style.display = 'none';
             
-            // コンパクトモードに切り替え
+            // CSSクラスを追加
             this.elements.container.classList.add('compact-mode');
             document.body.classList.add('compact-mode');
             document.documentElement.classList.add('compact-mode');
@@ -436,6 +627,8 @@ class PomodoroTimer {
             // ウィンドウサイズを170x170に変更してクリックスルーを有効化
             ipcRenderer.send('set-compact-mode', true);
         }
+        
+        console.log('🔄 Toggle complete');
     }
     
     initializeProgressRing() {
