@@ -80,13 +80,6 @@ function createTray() {
   
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: '表示',
-      click: () => {
-        mainWindow.show();
-        mainWindow.focus();
-      }
-    },
-    {
       label: '終了',
       click: () => {
         app.isQuiting = true;

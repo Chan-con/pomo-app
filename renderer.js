@@ -31,7 +31,6 @@ class PomodoroTimer {
             timeCircle: document.querySelector('.time-circle'),
             progressRing: document.querySelector('.progress-ring-progress'),
             container: document.querySelector('.container'),
-            currentTime: document.getElementById('currentTime'),
             handleArea: document.getElementById('handleArea')
         };
         
@@ -40,7 +39,6 @@ class PomodoroTimer {
         this.updateDisplay();
         this.updateStats();
         this.initializeProgressRing();
-        this.startCurrentTimeUpdate();
         
         // ハンドル領域の監視
         this.initializeHandleArea();
@@ -638,23 +636,6 @@ class PomodoroTimer {
         this.elements.enableSyncCheckbox.disabled = false;
     }
     
-    startCurrentTimeUpdate() {
-        this.updateCurrentTime();
-        setInterval(() => {
-            this.updateCurrentTime();
-        }, 1000);
-    }
-    
-    updateCurrentTime() {
-        const now = new Date();
-        const timeString = now.toLocaleTimeString('ja-JP', { 
-            hour12: false,
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
-        this.elements.currentTime.textContent = timeString;
-    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
