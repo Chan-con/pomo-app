@@ -311,9 +311,6 @@ body.compact-mode {
     pointer-events: auto !important;
 }
 
-.compact-mode .time-circle.hover-transparent {
-    opacity: 0.3 !important;
-}
 
 
 /* ハンドル領域 */
@@ -341,28 +338,29 @@ body.compact-mode {
     background: rgba(226, 74, 74, 0.25);
 }
 
-/* 透明度制御（背面視認性向上） */
-.compact-mode.mouse-outside {
-    opacity: 0.3;
-    transition: opacity 0.2s ease;
-}
-
-.compact-mode.mouse-inside {
-    opacity: 1;
+/* シンプルな透過デザイン */
+.compact-mode {
+    opacity: 0.8; /* 常時軽く透過 */
     transition: opacity 0.2s ease;
 }
 
 .compact-mode .time-text {
     font-size: 20px !important;
+    opacity: 1 !important; /* 文字はくっきり */
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3); /* 視認性向上 */
 }
 
 .compact-mode .current-time {
-    font-size: 8px !important;
+    font-size: 12px !important; /* 8px → 12px に拡大 */
     margin-bottom: 2px;
+    opacity: 1 !important; /* 文字はくっきり */
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3); /* 視認性向上 */
 }
 
 .compact-mode .timer-label {
     font-size: 10px !important;
+    opacity: 1 !important; /* 文字はくっきり */
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3); /* 視認性向上 */
 }
 
 .settings {

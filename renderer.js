@@ -60,74 +60,7 @@ class PomodoroTimer {
         let startMouseX, startMouseY;
         let startWindowX, startWindowY;
         let dragModeEnabled = false;
-        let hoverCheckInterval = null;
         let dragModeTimeout = null;
-        let transparencyCheckInterval = null;
-        let isMouseInside = false;
-        let windowMouseEnterHandler = null;
-        let windowMouseLeaveHandler = null;
-        
-        // 透明度制御関数
-        const updateTransparency = (state) => {
-            // state: 'default' | 'transparent' | 'opaque'
-            const container = document.querySelector('.container');
-            
-            // コンパクトモードでない場合は何もしない
-            if (!container.classList.contains('compact-mode')) {
-                return;
-            }
-            
-            container.classList.remove('mouse-outside', 'mouse-inside');
-            
-            if (state === 'transparent') {
-                console.log('🔷 Making transparent (mouse on window but not handle)');
-                container.classList.add('mouse-outside');
-            } else if (state === 'opaque') {
-                console.log('🔶 Making opaque (mouse on handle or dragging)');
-                container.classList.add('mouse-inside');
-            } else {
-                console.log('🔹 Default state (mouse outside window)');
-                // デフォルトは不透明（CSSクラスなし）
-            }
-        };
-        
-        // 透明度チェック制御
-        const startTransparencyCheck = () => {
-            console.log('🔶 Starting transparency check (mouseenter/leave based)');
-            
-            // イベントリスナーを作成
-            windowMouseEnterHandler = () => {
-                console.log('🔶 Window mouseenter');
-                updateTransparency('transparent');
-            };
-            
-            windowMouseLeaveHandler = () => {
-                console.log('🔷 Window mouseleave');
-                updateTransparency('default');
-            };
-            
-            // イベントリスナーを追加
-            document.addEventListener('mouseenter', windowMouseEnterHandler);
-            document.addEventListener('mouseleave', windowMouseLeaveHandler);
-        };
-        
-        const stopTransparencyCheck = () => {
-            console.log('🔷 Stopping transparency check');
-            
-            // イベントリスナーを削除
-            if (windowMouseEnterHandler) {
-                document.removeEventListener('mouseenter', windowMouseEnterHandler);
-                windowMouseEnterHandler = null;
-            }
-            if (windowMouseLeaveHandler) {
-                document.removeEventListener('mouseleave', windowMouseLeaveHandler);
-                windowMouseLeaveHandler = null;
-            }
-            
-            // 透明度クラスをクリア
-            const container = document.querySelector('.container');
-            container.classList.remove('mouse-outside', 'mouse-inside');
-        };
         
         // ドラッグモード制御関数
         const enableDragMode = () => {
@@ -158,39 +91,12 @@ class PomodoroTimer {
             }
         };
         
-        // ホバーチェック制御
-        const startHoverCheck = () => {
-            if (hoverCheckInterval) return;
-            
-            console.log('🔵 Starting hover check');
-            hoverCheckInterval = setInterval(() => {
-                // 500ms間隔でドラッグモードを一瞬有効化してホバーチェック
-                if (!dragModeEnabled && !isDragging) {
-                    ipcRenderer.send('enable-drag-mode');
-                    
-                    // 50ms後にクリックスルーに戻す（ホバー中でない場合）
-                    setTimeout(() => {
-                        if (!dragModeEnabled && !isDragging) {
-                            ipcRenderer.send('disable-drag-mode');
-                        }
-                    }, 50);
-                }
-            }, 500);
-        };
+        // ホバーチェック削除（シンプル化）
         
-        const stopHoverCheck = () => {
-            if (hoverCheckInterval) {
-                console.log('🔵 Stopping hover check');
-                clearInterval(hoverCheckInterval);
-                hoverCheckInterval = null;
-            }
-        };
-        
-        // ハンドル領域のホバー検知
+        // ハンドル領域のホバー検知（ドラッグ機能のみ）
         this.elements.handleArea.addEventListener('mouseenter', () => {
             console.log('🟡 Handle area hovered');
             enableDragMode();
-            updateTransparency('opaque'); // ハンドル領域では常に不透明
         });
         
         this.elements.handleArea.addEventListener('mouseleave', () => {
@@ -210,9 +116,6 @@ class PomodoroTimer {
             if (e.button === 0) { // 左クリック
                 isDragging = true;
                 console.log('🔴 Starting drag operation');
-                
-                // ドラッグ中は不透明を維持
-                updateTransparency('opaque');
                 
                 // 開始位置を記録
                 startMouseX = e.screenX;
@@ -296,17 +199,10 @@ class PomodoroTimer {
                         console.log('🔵 Mode changed - Compact:', isCompact);
                         
                         if (isCompact) {
-                            console.log('🔵 Starting hover check for compact mode');
-                            startHoverCheck();
-                            startTransparencyCheck();
-                            // 初期状態は不透明（マウスが外にあるため）
-                            updateTransparency('default');
+                            console.log('🔵 Compact mode enabled - simple design');
                         } else {
-                            console.log('🔵 Stopping hover check for normal mode');
-                            stopHoverCheck();
-                            stopTransparencyCheck();
+                            console.log('🔵 Normal mode enabled');
                             disableDragMode();
-                            // ノーマルモードでは不透明（透明度クラスは既にクリア済み）
                         }
                     }, 0);
                 }
@@ -321,12 +217,7 @@ class PomodoroTimer {
         // 初期状態チェック
         const isInitiallyCompact = document.querySelector('.container').classList.contains('compact-mode');
         if (isInitiallyCompact) {
-            console.log('🔵 Initial compact mode detected - starting systems');
-            startHoverCheck();
-            startTransparencyCheck();
-            updateTransparency('default');
-        } else {
-            updateTransparency('opaque');
+            console.log('🔵 Initial compact mode detected - simple design');
         }
     }
     
