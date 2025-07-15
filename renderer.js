@@ -8,6 +8,8 @@ class PomodoroTimer {
         this.currentSession = 'work';
         this.completedPomodoros = 0;
         this.timer = null;
+        this.realTimeTimer = null;
+        this.sessionTransitionTimer = null;
         this.autoStartTimeout = null;
         this.isCompactMode = false;
         
@@ -15,6 +17,9 @@ class PomodoroTimer {
         this.breakTime = 5;
         this.syncTime = 0;
         this.enableSync = false;
+        this.realTimeEndTime = null;
+        this.isRealTimeSync = false;
+        this.preparedForStart = false;
         
         this.elements = {
             timeDisplay: document.getElementById('timeDisplay'),
@@ -256,6 +261,12 @@ class PomodoroTimer {
             this.isRunning = true;
             this.isPaused = false;
             
+            // 通常のタイマー開始時はリアルタイム同期状態をリセット
+            if (!this.enableSync || this.isPaused) {
+                this.isRealTimeSync = false;
+                this.realTimeEndTime = null;
+            }
+            
             this.elements.startBtn.disabled = true;
             this.elements.pauseBtn.disabled = false;
             this.elements.timeCircle.classList.add('active');
@@ -288,6 +299,18 @@ class PomodoroTimer {
             this.isPaused = true;
             clearInterval(this.timer);
             
+            // リアルタイム同期タイマーもクリア
+            if (this.realTimeTimer) {
+                clearTimeout(this.realTimeTimer);
+                this.realTimeTimer = null;
+            }
+            
+            // セッション切り替えタイマーもクリア
+            if (this.sessionTransitionTimer) {
+                clearTimeout(this.sessionTransitionTimer);
+                this.sessionTransitionTimer = null;
+            }
+            
             // 自動開始タイマーもクリア
             if (this.autoStartTimeout) {
                 clearTimeout(this.autoStartTimeout);
@@ -304,6 +327,18 @@ class PomodoroTimer {
         this.isRunning = false;
         this.isPaused = false;
         clearInterval(this.timer);
+        
+        // リアルタイム同期タイマーもクリア
+        if (this.realTimeTimer) {
+            clearTimeout(this.realTimeTimer);
+            this.realTimeTimer = null;
+        }
+        
+        // セッション切り替えタイマーもクリア
+        if (this.sessionTransitionTimer) {
+            clearTimeout(this.sessionTransitionTimer);
+            this.sessionTransitionTimer = null;
+        }
         
         // 同期待機タイマーもクリア
         if (this.waitTimer) {
@@ -338,6 +373,18 @@ class PomodoroTimer {
         this.isRunning = false;
         clearInterval(this.timer);
         
+        // リアルタイム同期タイマーもクリア
+        if (this.realTimeTimer) {
+            clearTimeout(this.realTimeTimer);
+            this.realTimeTimer = null;
+        }
+        
+        // セッション切り替えタイマーもクリア
+        if (this.sessionTransitionTimer) {
+            clearTimeout(this.sessionTransitionTimer);
+            this.sessionTransitionTimer = null;
+        }
+        
         this.elements.startBtn.disabled = false;
         this.elements.pauseBtn.disabled = true;
         this.elements.timeCircle.classList.remove('active');
@@ -361,12 +408,27 @@ class PomodoroTimer {
             );
         }
         
+        // リアルタイム同期モードの場合、次のセッションの終了時刻を計算
+        if (this.isRealTimeSync && this.realTimeEndTime) {
+            const nextSessionDuration = (this.currentSession === 'work' ? this.workTime : this.breakTime) * 60 * 1000;
+            
+            // 現在のセッション終了時刻を基準にして次のセッション終了時刻を計算
+            // 秒とミリ秒の調整は行わず、正確な時刻計算を維持
+            this.realTimeEndTime = new Date(this.realTimeEndTime.getTime() + nextSessionDuration);
+        }
+        
         this.setSessionTime();
         this.updateDisplay();
         this.updateStats();
         
-        // 次のセッションをすぐに開始
-        this.start();
+        // 次のセッション開始方法を分岐
+        if (this.isRealTimeSync) {
+            // リアルタイム同期モードでは分境界で開始
+            this.waitForSessionTransition();
+        } else {
+            // 通常モードでは即座に開始
+            this.start();
+        }
     }
     
     setSessionTime() {
@@ -560,36 +622,53 @@ class PomodoroTimer {
     
     waitForSyncTime() {
         const now = new Date();
-        const currentMinute = now.getMinutes();
-        const currentSecond = now.getSeconds();
         
-        let targetMinute = this.syncTime;
-        let minutesUntilTarget;
+        // 正確な分の0秒を計算
+        const targetTime = new Date();
+        targetTime.setMinutes(this.syncTime, 0, 0); // 秒とミリ秒を0に設定
         
-        if (currentMinute < targetMinute) {
-            minutesUntilTarget = targetMinute - currentMinute;
-        } else {
-            minutesUntilTarget = 60 - currentMinute + targetMinute;
+        // 過去の時刻の場合は次の時間の同じ分に設定
+        if (targetTime <= now) {
+            targetTime.setHours(targetTime.getHours() + 1);
         }
         
-        const millisecondsUntilTarget = (minutesUntilTarget * 60 - currentSecond) * 1000 - now.getMilliseconds();
+        const millisecondsUntilTarget = targetTime.getTime() - now.getTime();
+        
+        // リアルタイム同期モードの場合、正確な分境界で終了時刻を計算
+        this.isRealTimeSync = true;
+        this.preparedForStart = false;
+        const sessionDurationMs = this.timeRemaining * 1000;
+        this.realTimeEndTime = new Date(targetTime.getTime() + sessionDurationMs);
         
         this.elements.startBtn.disabled = true;
-        this.elements.timerLabel.textContent = `${targetMinute}分まで待機中...`;
-        this.elements.timeDisplay.textContent = `${Math.floor(millisecondsUntilTarget / 1000 / 60).toString().padStart(2, '0')}:${Math.floor((millisecondsUntilTarget / 1000) % 60).toString().padStart(2, '0')}`;
+        this.elements.timerLabel.textContent = `${this.syncTime}分まで待機中...`;
         
-        this.waitTimer = setInterval(() => {
-            const remaining = millisecondsUntilTarget - (Date.now() - now.getTime());
+        // 待機カウントダウンもリアルタイム同期で更新
+        const updateWaitingDisplay = () => {
+            const now = Date.now();
+            const remaining = targetTime.getTime() - now;
+            
             if (remaining <= 0) {
-                clearInterval(this.waitTimer);
-                this.waitTimer = null;
+                // 準備して開始
                 this.setSessionTime();
                 this.updateDisplay();
-                this.startTimer();
-            } else {
-                this.elements.timeDisplay.textContent = `${Math.floor(remaining / 1000 / 60).toString().padStart(2, '0')}:${Math.floor((remaining / 1000) % 60).toString().padStart(2, '0')}`;
+                this.targetEndTime = this.realTimeEndTime.getTime();
+                this.startRealTimeTimer();
+                return;
             }
-        }, 100);
+            
+            // Math.ceilで正確な秒表示
+            const remainingSec = Math.ceil(remaining / 1000);
+            const m = Math.floor(remainingSec / 60);
+            const s = remainingSec % 60;
+            this.elements.timeDisplay.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            
+            // 次の秒境界まで待機
+            const delay = 1000 - (now % 1000);
+            this.waitTimer = setTimeout(() => updateWaitingDisplay(), delay);
+        };
+        
+        updateWaitingDisplay();
     }
     
     startTimer() {
@@ -606,20 +685,139 @@ class PomodoroTimer {
             this.elements.timeCircle.classList.add('break');
         }
         
-        this.startTime = Date.now();
-        this.targetEndTime = this.startTime + (this.timeRemaining * 1000);
+        // リアルタイム同期モードの場合は事前計算した終了時刻を使用
+        if (this.isRealTimeSync && this.realTimeEndTime) {
+            this.targetEndTime = this.realTimeEndTime.getTime();
+        } else {
+            this.startTime = Date.now();
+            this.targetEndTime = this.startTime + (this.timeRemaining * 1000);
+        }
         
-        this.timer = setInterval(() => {
+        // リアルタイム同期モードとそうでないモードで分岐
+        if (this.isRealTimeSync && this.realTimeEndTime) {
+            // リアルタイム同期モードでは秒境界に同期したタイマーを使用
+            this.startRealTimeTimer();
+        } else {
+            // 通常モードでは従来のsetIntervalを使用
+            this.timer = setInterval(() => {
+                const now = Date.now();
+                const elapsed = Math.floor((now - this.startTime) / 1000);
+                this.timeRemaining = Math.max(0, Math.floor((this.targetEndTime - now) / 1000));
+                
+                this.updateDisplay();
+                
+                if (this.timeRemaining <= 0) {
+                    this.completeSession();
+                }
+            }, 1000);
+        }
+    }
+    
+    calculateRealTimeRemaining(targetEndTime, now) {
+        const diffMs = targetEndTime - now;
+        return Math.max(0, Math.ceil(diffMs / 1000));
+    }
+    
+    startRealTimeTimer() {
+        const updateTimer = () => {
             const now = Date.now();
-            const elapsed = Math.floor((now - this.startTime) / 1000);
-            this.timeRemaining = Math.max(0, Math.floor((this.targetEndTime - now) / 1000));
+            this.timeRemaining = this.calculateRealTimeRemaining(this.targetEndTime, now);
             
             this.updateDisplay();
             
             if (this.timeRemaining <= 0) {
-                this.completeSession();
+                this.completeSessionAtExactTime();
+                return;
             }
-        }, 1000);
+            
+            // 次の更新はミリ秒単位で正確に次の秒境界まで
+            const delay = 1000 - (now % 1000);
+            this.realTimeTimer = setTimeout(() => updateTimer(), delay);
+        };
+        
+        updateTimer();
+    }
+    
+    completeSessionAtExactTime() {
+        this.isRunning = false;
+        clearTimeout(this.realTimeTimer);
+        this.realTimeTimer = null;
+        
+        this.elements.startBtn.disabled = false;
+        this.elements.pauseBtn.disabled = true;
+        this.elements.timeCircle.classList.remove('active');
+        
+        // セッション切り替え
+        if (this.currentSession === 'work') {
+            this.completedPomodoros++;
+            this.saveStats();
+            this.currentSession = 'break';
+            
+            ipcRenderer.send('show-notification', 
+                'ポモドーロ完了！', 
+                '作業時間が終了しました。休憩を取りましょう。'
+            );
+        } else {
+            this.currentSession = 'work';
+            
+            ipcRenderer.send('show-notification', 
+                '休憩終了！', 
+                '休憩時間が終了しました。作業を再開しましょう。'
+            );
+        }
+        
+        this.setSessionTime();
+        this.updateDisplay();
+        this.updateStats();
+        
+        // リアルタイム同期モードでは即座に次のセッションを開始
+        if (this.isRealTimeSync) {
+            this.startNextSessionAtCurrentTime();
+        } else {
+            this.start();
+        }
+    }
+    
+    startNextSessionAtCurrentTime() {
+        // 現在時刻を基準に次のセッションの終了時刻を計算
+        const now = Date.now();
+        const sessionDuration = (this.currentSession === 'work' ? this.workTime : this.breakTime) * 60 * 1000;
+        this.realTimeEndTime = new Date(now + sessionDuration);
+        this.targetEndTime = this.realTimeEndTime.getTime();
+        
+        // 即座に次のセッションのタイマーを開始
+        this.startRealTimeTimer();
+    }
+    
+    waitForSessionTransition() {
+        const now = new Date();
+        const currentSeconds = now.getSeconds();
+        
+        if (currentSeconds === 0) {
+            // すでに分の0秒なので即座に開始
+            this.startSessionAtMinuteBoundary();
+        } else {
+            // 次の分の0秒まで待機
+            const millisecondsToNextMinute = (60 - currentSeconds) * 1000 - now.getMilliseconds();
+            
+            this.sessionTransitionTimer = setTimeout(() => {
+                this.startSessionAtMinuteBoundary();
+            }, millisecondsToNextMinute);
+        }
+    }
+    
+    startSessionAtMinuteBoundary() {
+        // 現在時刻を分の0秒に調整
+        const now = new Date();
+        now.setSeconds(0, 0);
+        
+        // 終了時刻を分境界基準で再計算
+        const sessionDuration = (this.currentSession === 'work' ? this.workTime : this.breakTime) * 60 * 1000;
+        this.realTimeEndTime = new Date(now.getTime() + sessionDuration);
+        
+        this.setSessionTime();
+        this.updateDisplay();
+        this.startTimer();
     }
     
     lockSettings() {
