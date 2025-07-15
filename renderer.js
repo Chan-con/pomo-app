@@ -393,12 +393,22 @@ class PomodoroTimer {
             this.completedPomodoros++;
             this.saveStats();
             
-            this.currentSession = 'break';
-            
             ipcRenderer.send('show-notification', 
                 'ポモドーロ完了！', 
                 '作業時間が終了しました。休憩を取りましょう。'
             );
+            
+            // 休憩時間が0分の場合は即座に次の作業セッションに移行
+            if (this.breakTime === 0) {
+                this.currentSession = 'work';
+                this.setSessionTime();
+                this.updateDisplay();
+                this.updateStats();
+                this.start();
+                return;
+            } else {
+                this.currentSession = 'break';
+            }
         } else {
             this.currentSession = 'work';
             
@@ -463,7 +473,8 @@ class PomodoroTimer {
     
     updateSettings() {
         this.workTime = parseInt(this.elements.workTimeInput.value) || 25;
-        this.breakTime = parseInt(this.elements.breakTimeInput.value) || 5;
+        const breakTimeValue = parseInt(this.elements.breakTimeInput.value);
+        this.breakTime = isNaN(breakTimeValue) ? 5 : breakTimeValue;
         this.syncTime = parseInt(this.elements.syncTimeInput.value) || 0;
         this.enableSync = this.elements.enableSyncCheckbox.checked;
         
@@ -501,7 +512,7 @@ class PomodoroTimer {
         if (savedSettings) {
             const settings = JSON.parse(savedSettings);
             this.workTime = settings.workTime || 25;
-            this.breakTime = settings.breakTime || 5;
+            this.breakTime = settings.breakTime !== undefined ? settings.breakTime : 5;
             this.syncTime = settings.syncTime || 0;
             this.enableSync = settings.enableSync || false;
             
@@ -715,17 +726,30 @@ class PomodoroTimer {
     
     calculateRealTimeRemaining(targetEndTime, now) {
         const diffMs = targetEndTime - now;
-        return Math.max(0, Math.ceil(diffMs / 1000));
+        return Math.max(0, Math.floor(diffMs / 1000));
     }
     
     startRealTimeTimer() {
+        // タイマー開始時にリングの色を設定
+        this.isRunning = true;
+        this.elements.startBtn.disabled = true;
+        this.elements.pauseBtn.disabled = this.enableSync;
+        this.elements.timeCircle.classList.add('active');
+        
+        if (this.currentSession === 'work') {
+            this.elements.timeCircle.classList.remove('break');
+        } else if (this.currentSession === 'break') {
+            this.elements.timeCircle.classList.add('break');
+        }
+        
         const updateTimer = () => {
             const now = Date.now();
-            this.timeRemaining = this.calculateRealTimeRemaining(this.targetEndTime, now);
+            const diffMs = this.targetEndTime - now;
+            this.timeRemaining = Math.max(0, Math.floor(diffMs / 1000));
             
             this.updateDisplay();
             
-            if (this.timeRemaining <= 0) {
+            if (diffMs <= 0) {
                 this.completeSessionAtExactTime();
                 return;
             }
@@ -751,12 +775,23 @@ class PomodoroTimer {
         if (this.currentSession === 'work') {
             this.completedPomodoros++;
             this.saveStats();
-            this.currentSession = 'break';
             
             ipcRenderer.send('show-notification', 
                 'ポモドーロ完了！', 
                 '作業時間が終了しました。休憩を取りましょう。'
             );
+            
+            // 休憩時間が0分の場合は即座に次の作業セッションに移行
+            if (this.breakTime === 0) {
+                this.currentSession = 'work';
+                this.setSessionTime();
+                this.updateDisplay();
+                this.updateStats();
+                this.startNextSessionAtCurrentTime();
+                return;
+            } else {
+                this.currentSession = 'break';
+            }
         } else {
             this.currentSession = 'work';
             
